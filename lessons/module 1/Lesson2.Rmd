@@ -1,0 +1,241 @@
+---
+title: "Урок второй: векторы, типы данных, операторы и ветвления"
+author: "Дмитрий Володин"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Матрицы и массивы: расширение векторов
+
+### Факторы
+
+Факторы - это фактически перечисления. Вектор значений категориальной переменной, который может принимать строго определённые значения из списка. Значения фактора могут иметь порядок.
+
+``` {r}
+x_fct <- rnorm(1000)
+
+# нарезка числового вектора на фактор из 6 элементов
+x_fct <- cut(x_fct, breaks = 6, labels = letters[6:1], ordered_result = TRUE)
+
+
+letters_indexes <- floor(runif(1000, min = 1, max = 27))
+
+# создание фактора из букв
+letters_factor <- factor(x = LETTERS[letters_indexes], levels = LETTERS, ordered = TRUE)
+
+as.numeric(letters_factor[1])
+
+l <- as.factor(LETTERS)
+
+# автоматический дроп факторов
+l <- c(l, 'dsnsdfjn')
+
+```
+
+### Таблицы
+
+Я не буду особо распространяться насчёт таблиц. Они полезны тем, что подсчитывают количество вхождения значения переменной.
+
+``` {r}
+# создание таблицы с количеством вхождений элемента в вектор
+table(letters_factor)
+```
+
+### Матрицы
+
+Матрицы, как и векторы, в R имеют много общего со своими математическими исходниками. Это векторы с несколькими измерениями. И делать вы с ними можете примерно всё тоже самое, даже чуть больше.
+
+``` {r}
+x_mtrx1 <- rnorm(1024)
+
+# задание измерений вектора
+dim(x_mtrx1) <- c(128, 8)
+
+# создание матрицы из значений
+x_mtrx2 <- matrix(rnorm(1024), nrow = 8, ncol = 128)
+
+# операции над матрицами
+x_mtrx2 + matrix(rnorm(1024, mean = 100, sd = 100), nrow = 8, ncol = 128)
+x_mtrx2 * matrix(rnorm(1024, mean = 100, sd = 100), nrow = 8, ncol = 128)
+x_mtrx2 / matrix(rnorm(1024, mean = 100, sd = 100), nrow = 8, ncol = 128)
+x_mtrx2 %/% matrix(rnorm(1024, mean = 100, sd = 100), nrow = 8, ncol = 128)
+matrix(rnorm(1024, mean = 100, sd = 100), nrow = 8, ncol = 128) %% x_mtrx2
+
+rowSums(x_mtrx1)
+colSums(x_mtrx1)
+
+rowMeans(x_mtrx1)
+colMeans(x_mtrx1)
+
+# транспонирование матриц
+t(x_mtrx1)
+
+# умножение матриц
+x_mtrx1 %*% x_mtrx2
+dim(x_mtrx1 %*% x_mtrx2)
+dim(1:10 %*% 10:1)
+xx <- 1:10 %*% t(10:1)
+dim(xx)
+diag(xx)
+
+# добавление строк и столбцов
+rbind(1:8, x_mtrx1)
+cbind('AA' = 1:128, x_mtrx1)
+
+diag(xx) <- 0
+
+# возврат элементов матрицы по индексам
+x_mtrx1[1:10, 1:8]
+x_mtrx1[, 1]
+
+# задание имён строк и колонок
+dimnames(x_mtrx1)[[2]] <- LETTERS[1:8]
+double_letters <- paste0(expand.grid(LETTERS, LETTERS)[[1]], expand.grid(LETTERS, LETTERS)[[2]])
+dimnames(x_mtrx2) <- list(LETTERS[1:8], double_letters[1:128])
+x_mtrx2[, 1]
+x_mtrx2[1, ]
+colnames(x_mtrx2) <- double_letters[1:128]
+rownames(x_mtrx2) <- LETTERS[1:8]
+
+# обращение к элементам матрицы по именам строк и/или колонок
+x_mtrx2['A', 'AA']
+
+# изменение значений определённых элементов
+x_mtrx1[128, ] <- 1:8
+x_mtrx2[, 128] <- 1:8
+```
+
+### Массивы
+
+Массивы - это дополнительные измерения. Трёх- и более мерные векторы.
+
+``` {r}
+# создание массива из вектора
+x_array <- rnorm(512)
+dim(x_array) <- c(8, 8, 8)
+
+# возврат элементов массива по индексам
+x_array[1, 2, 1]
+x_array[, 2, 1]
+x_array[, , 1]
+```
+
+
+## Списки: самая общая структура
+
+Список - это коллекция объектов. Абсолютно любых. Любых типов, размеров и вложенности. Списки могут содержать другие списки.
+
+Что касается памяти, то список - это коллекция ссылок на объекты. Если мы изменим хоть один объект, то адрес списка изменится (потому что мы создали новую коллекцию ссылок на объекты, так как у одного из объектов поменялась прописка). Адреса нетронутых элементов не поменяются.
+
+``` {r}
+# создание простейшего списка
+x_l1 <- list(1:10)
+str(x_l1)
+
+x_l1[1]
+x_l1[[1]]
+x_l1[[1]][10]
+
+# создание списка с простой иерархией
+x_l1 <- c(x_l1, list(LETTERS), list(x_array), list(x_mtrx1))
+str(x_l1)
+
+x_l1[[4]][, 1]
+
+# создание именованного списка
+x_l2 <- list(
+  numbers = 1:10,
+  letters = LETTERS,
+  array = x_array,
+  matrix = x_mtrx1,
+  unnamed_list = x_l1
+)
+str(x_l2)
+
+x_l2$unnamed_list[[1]][1]
+
+# добавление нового элемента в список
+x_l2$new <- c('R', 'Is', 'awesome')
+x_l2$new
+str(x_l2)
+```
+
+## Датафреймы: список векторов одинаковой длины
+
+Датафрейм - это частный случай списка. В списке-датаферймы все элементы - это векторы одинаковой длины. Каждый вектор-колонка имеет имя.
+
+``` {r}
+# создание датафрейма
+x_df <- data.frame(
+  letters = letters[1:10],
+  norm = rnorm(10),
+  unif = runif(10),
+  order = 1:10
+)
+
+str(x_df)
+class(x_df)
+
+x_df$norm
+x_df[, 1]
+x_df[, 1, drop = FALSE]
+
+x_df[1, ]
+
+# добавление строки в датафрейм
+x_df[11, ] <- list(
+  letters = letters[11],
+  norm = rnorm(1),
+  unif = runif(1),
+  order = 11
+)
+
+# добавление столбца в датафрейм
+x_df$new_col <- 11:1
+
+as.list(x_df)$norm
+
+# обращение к элементам датафрейма
+x_df[["letters"]]
+x_df[, c("letters", "norm")]
+x_df[floor(x_df$norm) == 1, ]
+x_df[, which(floor(x_df$norm) == 1)]
+```
+
+## Практика с датафреймами
+
+Эта часть урока проходится вместе со студентами по возможности. В противном случае - самостоятельная практика для студентов
+
+``` {r}
+# сохранение встроенного датасета mtcars в переменную
+my_data <- mtcars
+str(my_data)
+
+# краткие сведения по каждой переменной
+summary(my_data)
+
+# создадим датафрейм со статистиками по группам машинам (по количеству цилиндров)
+un_cyls <- unique(my_data$cyl)
+
+agg_data <- data.frame(
+  cyl = un_cyls
+)
+
+agg_data$n_cars <- c(
+  sum(my_data$cyl == agg_data$cyl[1]),
+  sum(my_data$cyl == agg_data$cyl[2]),
+  sum(my_data$cyl == agg_data$cyl[3])
+)
+
+agg_data$mean_hp <- c(
+  mean(my_data$hp[my_data$cyl == agg_data$cyl[1]]),
+  mean(my_data$hp[my_data$cyl == agg_data$cyl[2]]),
+  mean(my_data$hp[my_data$cyl == agg_data$cyl[3]])
+)
+
+agg_data$mean_mpg <- c(
+  mean(my_data$mpg[my_data$cyl == agg_data$cyl[1]]),
+  mean(my_data$mpg[my_data$cyl == agg_data$cyl[2]]),
+  mean(my_data$mpg[my_data$cyl == agg_data$cyl[3]])
+)
+```
