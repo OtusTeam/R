@@ -176,10 +176,14 @@ x_df <- data.frame(
 str(x_df)
 class(x_df)
 
+# измерения датафрейма
+length(x_df)
+nrow(x_df)
+ncol(x_df)
+
 x_df$norm
 x_df[, 1]
 x_df[, 1, drop = FALSE]
-
 x_df[1, ]
 
 # добавление строки в датафрейм
