@@ -1,0 +1,250 @@
+---
+title: "Урок седьмой: Работа с файловой системой. Форматы csv и xls(x)"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## Работа с файловой системой
+
+R использует слэш "/" для разделения пути к файлам и директориям
+
+Пути к файлам и директориям в R можно задавать как абсолютные (полные
+пути от корневой директории), так и относительные (относительно текущей
+рабочей директории).
+
+Для чтения и записи файлов в R используются различные функции в
+зависимости от формата файла. Например, для чтения и записи файлов
+формата csv используются функции read.csv() и write.csv()
+соответственно, а для файлов формата xls - readxl::read_excel() и
+writexl::write_xlsx().
+
+При работе с файлами и директориями в R следует учитывать особенности
+операционной системы, на которой выполняется код, особенности путей к
+файлам и директориям на этой операционной системе, а также права доступа
+к файлам и директориям.
+
+```{r}
+# Создать новую директорию "my_dir" в текущей рабочей директории
+dir.create("my_dir")
+
+# Создать новую директорию "my_dir" в указанной директории
+# dir.create("C:/Users/user/Documents/my_dir")
+
+# Записать данные в файл "my_data.csv" в текущей рабочей директории
+write.table(c(1,2,3), "my_test_R_data.csv")
+
+# Проверить существование файла "my_test_R_data.csv" в текущей рабочей директории
+file.exists("my_test_R_data.csv")
+
+# информация о файле
+file.info("my_test_R_data.csv")
+
+# информация о файле
+file.size("my_test_R_data.csv")
+
+# Проверить существование файла "my_test_R_data.csv" в указанной директории
+file.exists("C:/Users/user/Documents/my_test_R_data.csv")
+
+# Удалить директорию "my_dir" и все ее содержимое в текущей рабочей директории
+unlink("my_dir", recursive = TRUE)
+
+# Удалить директорию "my_dir" и все ее содержимое в указанной директории
+#unlink("C:/Users/user/Documents/my_dir", recursive = TRUE)
+
+# Удалить файл "my_file.csv" в текущей рабочей директории
+unlink("my_test_R_data.csv")
+
+# список всех файлов директории
+list.files()[1:3]
+
+# рабочая директория
+getwd() 
+#изменим путь рабочей директории
+setwd("/Users/vyacheslav") 
+
+# список всех файлов директории. возможны ошибки если папок слишком много
+list.dirs('Pictures')
+
+
+# работа с буфером обмена Windows - указываем вместо пути - clipboard
+# write.table(data.frame(rnorm(5),runif(5)), 'clipboard', sep = '\t', row.names = FALSE)     
+# read.table('clipboard')
+
+#работа с буфером обмена MAC - pipe("pbcopy", "w")
+#write.table(data.frame(rnorm(5),runif(5)), file=pipe("pbcopy", "w"), sep = '\t', row.names = FALSE)     
+
+#read.table(pipe("pbpaste"), sep='\t', header=TRUE) 
+
+
+```
+
+### Работа с файловой системой через GUI RStudio
+
+Вкладка Files в RStudio (см. видео лекций)
+
+## Работа с форматом txt,csv,dsv
+
+txt - наиболее простой формат текстовых данных
+
+Расширение может быть любое (даже такое -> 'file.arbuzov') важно, что какая структура внутри.
+
+Форматы фиксированной ширины
+
+-   Fixed-width ASCII
+
+-   Parquet
+
+Форматы с разделителем:
+
+-   CSV -- разделитель запятая (иногда точка с запятой SSV-формат)
+
+-   TSV -- разделитель табуляция
+
+-   PSV -- разделитель вертикальная черта
+
+Форматы для для передачи данных по сети интернет (JSON,XML)
+
+```{r}
+# сложные примеры из библиотеки readr
+library(readr)
+path_csv = readr_example(readr_example())
+
+# файл где после 1000 наблюдений изменяется тип данных
+df = read_csv(path_csv[1])
+problems(df)
+# используем основную команду в библиотеке read_csv
+# метод 1 - расширяем границы строк для определения формата 
+df = read_csv(path_csv[1],guess_max = 1401)
+df
+# метод 2 - принудительно преобразуем столбцы к нужному формату
+df <- read_csv(
+  path_csv[1], 
+  col_types = list(
+    x = col_double(),
+    y = col_date(format = "")
+  )
+)
+df
+
+# файл с пробелами
+# более сложная история, здесь нужно использовать команду read_table
+df2 = read_table(path_csv[2],col_names = FALSE)
+df2
+
+# логи файлов
+read_log(path_csv[3])
+
+# файлы с фиксированной шириной
+# метод 1 - автоматическое определение ширины
+read_fwf(path_csv[4], fwf_empty(path_csv[4], col_names = c("first", "last", "state", "ssn")))
+# метод 2 - определяем самостоятельно
+read_fwf(path_csv[4], fwf_widths(c(20, 10, 12), c("name", "state", "ssn")))
+
+# файл с выравниванием по правому и левому краю пробелами
+read_table(path_csv[5])
+# обычный csv файл
+read_csv(path_csv[6])
+# обычный csv файл сжатый в архив
+read_csv(path_csv[7])
+# обычный csv файл сжатый в архив
+read_csv(path_csv[8])
+
+# чтение запись с помощью библиотеки data.table*
+library(data.table)
+# очень производительная фукнция -  часто на автомате хорошо парсит данные, но бывает и не идеально, особенно когда имеет дело с пробелами
+fread(path_csv[1])
+
+# очень производительная фукнция для записи файлом с разделителем
+fwrite(mtcars,file = 'mtcars.csv')
+
+```
+
+## Работа с форматом xls
+
+-   XLS -- бинарный файл
+
+-   XLSX -- xml файл со сложной структурой
+
+```{r}
+library(readxl)
+# Тестовые данные внутри библиотеки readxl
+readxl_example()
+# пути до тестовых данных
+path_excel = readxl_example(readxl_example())
+path_excel
+
+# разные способы определения типа excel файла
+excel_format(path_excel[1])
+excel_format(path_excel[2])
+format_from_ext(path_excel[2])
+format_from_signature(path_excel[2])
+
+# какие есть листы в файле
+excel_sheets(path_excel[4])
+
+#  отдельные функции
+# для чтения xls
+read_xls(path_excel[1])
+# для чтения xlsx
+read_xlsx(path_excel[2])
+
+# пример использования
+df=read_excel(path_excel[4]) # зачитывает самый первый лист
+df2=read_excel(path_excel[4],sheet = 'mtcars')
+read_excel(path_excel[4], range = "C1:E7")
+read_excel(path_excel[4], range = "mtcars!B1:D5")
+
+# чтение и запись с помощью библиотеки openxlsx *
+library(openxlsx)
+# чтение
+df = read.xlsx(path_excel[4],sheet='mtcars')
+head(df)
+# запись
+# установим стиль
+hs <- createStyle(
+  textDecoration = "BOLD", fontColour = "#FFFFFF", fontSize = 12,
+  fontName = "Arial Narrow", fgFill = "#4F80BD"
+)
+data(mtcars)
+write.xlsx(mtcars,
+  file = "test.xlsx",
+  colNames = TRUE, borders = "rows", headerStyle = hs
+)
+
+
+
+```
+
+## Работа с внутренним форматом данных R (RData,rds) \*
+
+-   Внутренний формат данных в R - Rdata
+
+-   Rdata и Rda синонимы
+
+-   Хранит множество объектов R
+
+-   Бинарный файл rds -- может хранить только 1 объект
+
+```{r}
+x = data.frame(rnorm(100),rnorm(100))
+model_test = lm(x[,1]~x[,2])
+# сохранить все объеты
+save.image('my_text_image.RData')
+load('my_text_image.RData')
+
+# сохранить список объектов
+save(x, model_test,file = 'list_objects.RData')
+load('list_objects.RData')
+
+# сохранить отдельный объект
+saveRDS(model_test,file = 'test_object.rds')
+infoRDS('test_object.rds')
+readRDS('test_object.rds')
+```
+
+
+* задания со звездочкой - бонусный материал 
