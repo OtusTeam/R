@@ -28,6 +28,9 @@ writexl::write_xlsx().
 к файлам и директориям.
 
 ```{r}
+# raw строки в R
+print(r'{user\notebook}')
+
 # Создать новую директорию "my_dir" в текущей рабочей директории
 dir.create("my_dir")
 
@@ -79,6 +82,10 @@ list.dirs('Pictures')
 
 #read.table(pipe("pbpaste"), sep='\t', header=TRUE) 
 
+# работа с буфером обмена через clipr
+library(clipr)
+write_clip(mtcars,allow_non_interactive = T)
+read_clip(allow_non_interactive = T)[1:4]
 
 ```
 
