@@ -1,0 +1,213 @@
+---
+title: "Урок восьмой: HTTP запросы. Форматы json и xml"
+author: "Дмитрий Володин"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## HTTP запросы в httr2
+ 
+
+```{r}
+library(httr2)
+
+# изучим документацию по API
+# https://app.swaggerhub.com/apis/NobelMedia/NobelMasterData/2.1
+
+# базовый урл
+base_url <- 'https://api.nobelprize.org/2.1'
+
+# базовый запрос
+base_req <- request(base_url = base_url)
+
+# добавляем метод
+base_req <- req_method(base_req, 'GET')
+
+# добавляем путь
+path_req <- req_url_path_append(base_req, 'nobelPrizes')
+
+# добавляем параметры запроса  
+query_req <- req_url_query(path_req, nobelPrizeYear = 2010, yearTo = 2019, format = 'csv')
+
+# отправляем запрос
+resp <- req_perform(query_req) 
+
+# читаем статус
+resp_status(resp)
+
+# читаем тело в бинарном виде
+resp_raw <- resp_body_raw(resp)
+
+# превращаем в ксв
+df <- readr::read_csv(resp_raw)
+
+# теперь делаем  всё в один пайп
+resp_json <- request(base_url = base_url) %>% 
+  req_method('GET') %>% 
+  req_url_path_append('nobelPrizes') %>% 
+  req_url_query(nobelPrizeYear = 2010, yearTo = 2019) %>%
+  req_verbose() %>% 
+  req_perform() %>% 
+  resp_body_json()
+
+request(base_url = base_url) %>% 
+  req_method('GET') %>% 
+  req_url_path_append('nobelPrizes') %>% 
+  req_url_query(nobelPrizeYear = 2010, yearTo = 2019, limit = 100) %>%
+  req_verbose() %>% 
+  req_perform() %>% 
+  resp_body_string() %>% 
+  clipr::write_clip()
+
+# аутентификация
+# базовая - логин, пароль
+req_auth_basic(request, username, password)
+
+# Bearer token
+req_auth_bearer_token(request, token)
+
+# OAuth
+# для неё нужно досконально читать документацию по API
+# единого способа нет
+# Обычно включает в себя создание приложения в личном кабинете,
+# получение его айди и секретного токена
+# и уже после этого можно пробовать идентифицировать запросы разными способами
+```
+
+## Формат JSON
+
+```{r}
+# install.packages(jsonlite)
+library(jsonlite)
+
+# наш помощник - https://jsonformatter.org/
+
+# преобразование строки в JSON
+request(base_url = base_url) %>% 
+  req_method('GET') %>% 
+  req_url_path_append('nobelPrizes') %>% 
+  req_url_query(nobelPrizeYear = 2010, yearTo = 2019) %>%
+  req_verbose() %>% 
+  req_perform() %>% 
+  resp_body_string() %>% 
+  fromJSON()
+
+# преобразование датафрейма происходит построчно
+palmerpenguins::penguins %>% 
+  toJSON(auto_unbox = TRUE) %>%  
+  clipr::write_clip()
+
+# преобразование списка - поэлементно
+palmerpenguins::penguins %>% 
+  as.list() %>% 
+  toJSON(auto_unbox = TRUE) %>% 
+  clipr::write_clip()
+```
+
+
+## Формат XML
+
+```{r}
+# install.packages(xml2)
+library(xml2)
+palmerpenguins::penguins[rowSums(is.na(palmerpenguins::penguins)) == 0, ] %>% 
+  clipr::write_clip()
+
+df_xml <- read_xml('/Users/anchi/Downloads/Book2.xml')
+xml_list <- as_list(df_xml)
+
+xml_structure(df_xml)
+
+Map(\(n) {
+  xml_child(df_xml, 5) |>
+    xml_child(1) |>
+    xml_children() |>
+    Map(\(x) xml_child(x ,n) |> xml_text(), x = _) |>
+    unlist()
+}, 1:8) |>
+  as.data.frame()
+```
+
+## Анатомический театр
+
+```{r}
+library(httr2)
+library(tidyverse)
+
+# подготовка
+env_vars <- c('SPOTIFY_CLIENT', 'SPOTIFY_TOKEN')
+base_url <- 'https://api.spotify.com/v1'
+user_id <- '0b51t1adgr7e4sagi2flr4zv4'
+
+# получение токена для get запросов
+request('https://accounts.spotify.com/api/token') %>% 
+  req_auth_basic(Sys.getenv(env_vars[1]), Sys.getenv(env_vars[2])) %>% 
+  req_body_form(grant_type = 'client_credentials') %>% 
+  req_perform() %>% 
+  resp_body_json() %>% 
+  `[[`('access_token') %>% 
+  Sys.setenv(SPOTIFY_BEARER = .)
+
+# формируем базовый запрос с аутентификацией
+base_request <- request(base_url) %>% 
+  req_auth_bearer_token(Sys.getenv('SPOTIFY_BEARER'))
+
+# проверим работу
+me <- base_request %>% 
+  req_url_path_append('users') %>% 
+  req_url_path_append(user_id) %>% 
+  req_perform() %>% 
+  resp_body_json()
+
+# получаем информацию о плейлистах
+playlists <- base_request %>% 
+  req_url_path_append('users') %>% 
+  req_url_path_append(user_id) %>% 
+  req_url_path_append('playlists') %>% 
+  req_perform() %>% 
+  resp_body_json()
+
+# собираем id треков плейлиста
+pl_id <- playlists$items[[1]]$id
+
+# cобираем айди треков
+anemoia_tracks <- base_request %>% 
+  req_url_path_append('playlists') %>% 
+  req_url_path_append(pl_id) %>% 
+  req_url_path_append('tracks') %>% 
+  req_perform() %>% 
+  resp_body_json()
+
+# собираем характеристики треков
+track_resps <- Map(function(t) {
+  base_request %>% 
+    req_url_path_append('audio-features') %>% 
+    req_url_path_append(t$track$id)
+}, anemoia_tracks$items) %>% 
+  multi_req_perform() %>% 
+  Map(compose(as_tibble, resp_body_json), .) %>% 
+  Reduce(bind_rows, .)
+
+base_request %>% 
+  req_url_path_append('playlists') %>% 
+  req_url_path_append(pl_id) %>% 
+  req_url_path_append('tracks') %>% 
+  req_perform() %>% 
+  resp_body_json() %>% 
+  `$`('items') %>% 
+  Map(function(t) {
+    base_request %>% 
+      req_url_path_append('audio-features') %>% 
+      req_url_path_append(t$track$id)
+  }, .) %>% 
+  multi_req_perform() %>% 
+  Map(compose(as_tibble, resp_body_json), .) %>% 
+  Reduce(bind_rows, .)
+
+tracks <- Map(function(x) resp_body_json(x), track_resps)
+
+purrr::map_df(tracks, as.data.frame) %>% 
+  ggplot(aes(x = danceability, y = energy, size = loudness))+
+  geom_point()
+```
+
