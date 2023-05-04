@@ -1,0 +1,179 @@
+---
+title: "Урок восьмой: Веб-скрейпинг с rvest"
+author: "Дмитрий Володин"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Что такое веб скрейпинг?
+
+Веб скрейпинг (web scraping) - процесс извлечения информации из веб страниц. Это может быть какая-то финансовая или коммерческая информация. Это может быть информация для научных работ.
+
+Существует два вида скрейпинга - статичных сайтов и динамических. Для скрейпинга динамических сайтов могут потребоваться гораздо более сложные инструменты вроде хедлес браузеров. Это не сильная сторона R (хотя не невозмодная), потому мы сегодня остановимся на скрейпинге относительно статичных веб страниц.
+
+## Причём тут HTTP запросы и XML
+
+Как вы помните из прошлого урока, вводя адрес сайта в браузере вы (через несколько прослоек) делаете http запрос, который возвращает вам HTML. А HTML - это очень похоже на html. Такая же древовидная структура тегов с атрибутами и текстом.
+
+```{r}
+# Базовая функция для чтения страниц в rvest: read_html
+library(rvest)
+
+url <- 'https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)'
+gdp_page <- read_html(url)
+
+# Это тоже самое, что и выполнить get запрос по урлу
+library(httr2)
+grp_page_httr <- request(url) %>% 
+  req_perform() %>% 
+  resp_body_html()
+
+# Но у httr2 есть серь>зное преимущество: прописывание своего юзерагента
+user_agent <- 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/112.0'
+
+request('https://httpbin.org/user-agent') %>% 
+  req_user_agent(user_agent) %>% 
+  req_perform() %>% 
+  resp_body_json()
+
+request('https://httpbin.org/user-agent') %>% 
+  req_user_agent('Just teaching about web scraping. If violating, please send a message via telegram @volodin_dd') %>% 
+  req_perform() %>% 
+  resp_body_json()
+```
+
+А структуру сайта можно увидеть через функции из пакета для работы с xml
+
+```{r}
+library(rvest)
+library(xml2)
+
+url <- 'https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)'
+gdp_page <- read_html(url)
+gdp_page %>% 
+  xml_structure()
+```
+
+## Как искать иголку в стоге тегов
+
+В реальных веб страницах очень больше html с очень большим количеством тегов. Чтобы найти что-то, нужно уметь пользоваться путеводителем. Вам в помощь средства разработчика в браузере.
+
+```{r}
+# пример с простыми тегами
+html <- '<!DOCTYPE html>
+<html>
+<body>
+
+<h1>My First Heading</h1>
+
+<div>
+	<p>First p entry</p>
+    <span>First span entry</span>
+    <div>
+    	<p>Second p entry</p>
+      <b>First bold entry</b>
+    </div>
+</div>
+
+<ol>
+  <li>First list element</li>
+  <li>Second list element</li>
+  <li>Third list element</li>
+  <li>Fourth list element</li>
+</ol>
+
+<p>My first paragraph.</p>
+
+</body>
+</html>'
+
+doc <- read_html(html)
+
+# пройдём по пути до полужирного текста
+doc %>% 
+  html_element('b') %>% 
+  html_text()
+
+# достанем все p элементы
+doc %>% 
+  html_elements('p') %>% 
+  html_text()
+
+# достанем только Second p entry
+doc %>% 
+  html_element('div div p') %>% 
+  html_text()
+```
+
+## Классы и пути
+
+Кроме самих тегов у них есть атрибуты. Часто это классы в CSS. Они так и пишутся `<a class="very-useful-link">...`. very-useful-link здесь - это класс в отдельном css файле, который определяет стиль для всех элементов этого класса. Доступны и мультиклассы, то есть можно для одногоэлемента указать несколько классов через пробел. Чтобы получить элементы определённого класса, нужно указать его название с точкой в начале
+
+```{r}
+html_css <- '<!DOCTYPE html>
+<html>
+<body>
+
+<h1>My First Heading</h1>
+
+<div class="first">
+	<p class="special-p">First p entry</p>
+  <span>First span entry</span>
+  <div>
+    <p>Second p entry</p>
+    <b class="multi">First bold entry</b>
+  </div>
+</div>
+
+<ol>
+  <li>First list element</li>
+  <li>Second list element</li>
+  <li>Third list element</li>
+  <li>Fourth list element</li>
+</ol>
+
+<p class="special-p multi">My first paragraph.</p>
+
+</body>
+</html>'
+
+read_html(html_css) %>% 
+  html_elements('.first')
+
+# мультикласс
+read_html(html_css) %>% 
+  html_elements('.special-p.multi')
+
+# чтение только определённых тегов класса
+read_html(html_css) %>% 
+  html_elements('.multi')
+
+read_html(html_css) %>% 
+  html_elements('p.multi')
+
+read_html(html_css) %>% 
+  html_elements('b.multi')
+
+# Дети, родители, братья и сёстры
+# Подходит как для классов, так и для тегов
+read_html(html_css) %>% 
+  html_elements('div.first > p')
+
+read_html(html_css) %>% 
+  html_elements('p.special-p + span')
+```
+
+Для более прицельного поиска существуют запросы в xpath.
+
+```{r}
+read_html(doc_css) %>% 
+  html_elements(xpath = '//div/div[p]')
+
+read_html(doc_css) %>% 
+  html_elements(xpath = '//div[p[text() = "Second p entry"]]/b')
+```
+
+
+
+
+
