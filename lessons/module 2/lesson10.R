@@ -41,8 +41,7 @@ request(base_url = base_url) %>%
     )
     return(laureat_row)
   }, .) %>% 
-  Reduce(rbind, .) %>% 
-  write_tsv('/tmp/vdbsdfb.tsv')
+  dplyr::bind_rows()
 
 # Написать фукнцию для превращения информации о лауреате в табличный формат со следующими колонками: id, fullName, gender, birth_date, birth_country, prize_year. Год награды брать первый
 
@@ -70,3 +69,8 @@ extract_laureat <- function(laureat) {
 laureates_df_list <- Map(extract_laureat, laureates$laureates)
 
 Reduce(rbind, laureates_df_list, accumulate = TRUE) |> View()
+
+library(rvest)
+"<a class = 'dsfb onojn'>"
+
+html_elements(css = 'a.dsfb.onojn')
