@@ -1,0 +1,133 @@
+---
+title: "Урок десятый: Работа с базами данных"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## DBI (Database Interface)
+
+Спецификация R-пакетов, которые обеспечивают универсальный интерфейс для работы с различными базами данных, такими как MySQL, SQLite, PostgreSQL, Oracle и др.
+
+DBI определяет набор функций, которые должны быть реализованы каждым пакетом для обеспечения совместимости.
+
+Благодаря DBI, пользователи могут использовать единый синтаксис для работы с различными базами данных, не заботясь о конкретных деталях их реализации.
+
+## R и SQLite
+
+SQLite - легковесная, встраиваемая реляционная база данных, которая хранит данные в одном файле, поддерживает SQL и обладает высокой скоростью работы.
+
+Для подключения к SQLite используем библиотеку RSQLite и работаем с базой с использованием команд библиотеки DBI.
+
+```{r}
+
+library(DBI)
+library(RSQLite)
+con = dbConnect(RSQLite::SQLite(),":memory:")
+data("mtcars")
+dbWriteTable(con,'mtcars',mtcars)
+dbListTables(con)
+dbReadTable(con,"mtcars")
+dbRemoveTable(con,'mtcars')
+dbDisconnect(con)
+```
+
+
+
+## R и PostgreSQL
+
+
+PostgreSQL - это бесплатная и открытая реляционная база данных с широким спектром функций и возможностей, включая поддержку SQL, транзакций, индексирования, хранения процедур, а также расширений.
+
+Для подключения к SQLite используем библиотеку RPostgres и работаем с базой с использованием команд библиотеки DBI.
+
+```{r}
+library(RPostgres)
+# link for some free PostgreSQL DB
+# https://uibakery.io/sql-playground
+con = dbConnect(
+  Postgres(),
+  host = 'psql-mock-database-cloud.postgres.database.azure.com',
+  port = 5432,
+  user = 'gwsetptlrsvidlirzpfrgwde@psql-mock-database-cloud',
+  password = 'vebxfoeboxmdbouhyqovfqap',
+  dbname = 'booking1683649458660lzqqesusssxtwoyi'
+)
+
+dbListTables(con)
+# dbWriteTable(con,'cars1234',mtcars)
+dbGetInfo(con)
+dbExistsTable(con,'cars1234')
+dbListFields(con,'cars1234')
+dbReadTable(con,'cars1234')
+```
+
+## Использование SQL в R
+
+SQL (Structured Query Language) - язык программирования, используемый для работы с реляционными базами данных.
+
+SQL является одним из наиболее популярных языков программирования и используется в различных областях, связанных с хранением и обработкой данных.
+
+```{r}
+## SQL
+dbGetQuery(con,'SELECT * from cars1234 where cyl=6')
+my_query = dbSendQuery(con,'SELECT * from cars1234 where cyl=6')
+dbFetch(my_query)
+dbClearResult(my_query)
+
+# 1 methods params
+num_cyl = 4
+my_query = dbSendQuery(con,paste0('SELECT * from cars1234 where cyl=',num_cyl))
+dbFetch(my_query)
+dbClearResult(my_query)
+my_query
+
+#  2 method
+num_cyl = 4
+my_query = dbSendQuery(con,'SELECT * from cars1234 where cyl= $1 and am = $2',params = list(num_cyl,1))
+dbFetch(my_query)
+dbClearResult(my_query)
+my_query
+
+# update
+dbExecute(con,'UPDATE cars1234 SET hp = hp+10')
+
+# insert
+dbExecute(con,'INSERT INTO cars1234 (hp,mpg) VALUES (1,2),(2,3)')
+
+db_res = dbReadTable(con,'cars1234')
+
+dbWriteTable(con,'cars1234',head(mtcars,3),append=TRUE)
+
+dbDisconnect(con)
+```
+
+## R и ClickHouse
+
+ClickHouse - это колоночная СУБД с открытым исходным кодом, специализирующаяся на аналитических запросах и обработке больших объемов данных.
+
+
+Для подключения к ClickHouse используем библиотеку ClickHouseHTTP и работаем с базой с использованием команд библиотеки DBI.
+
+```{r}
+library(ClickHouseHTTP)
+###### clickhouse ###
+# find your DB connection on  https://clickhouse.com
+con = dbConnect(
+  ClickHouseHTTP(),
+  host = 'cibo7rsjn9.eu-central-1.aws.clickhouse.cloud',
+  port = 8443,
+  user = 'default',
+  password = 'D3jeO8IBtXR~5',
+  https = TRUE)
+
+dbListTables(con)
+
+swissfrom_db = dbReadTable(con,'swiss')
+swissfrom_db
+
+```
+
