@@ -1,0 +1,230 @@
+---
+title: "Урок двенадцатый: Опрятные данные: библиотеки tibble, tidyr"
+author: "Дмитрий Володин"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Tidy data
+
+Tidy data - это подход к описанию данных. Главная идея в том, что данные для статистического анализа должны принимать табличный вид. Строками этой таблицы должны статть наблюдения или события, а колонками - переменные.
+
+![Tidy](https://d33wubrfki0l68.cloudfront.net/6f1ddb544fc5c69a2478e444ab8112fb0eea23f8/08547/images/r4ds/tidy-1.png)
+
+Это не прямо набор чётких правил. Что считать наблюдением - зависит от исследования. Например тот же iris датасет можно представить тремя разными способами и все три они будут в той или иной степени tidy.
+
+```{r}
+library(tidyverse)
+library(palmerpenguins)
+
+iris_half_longed <- iris %>% 
+  mutate(id = 1:n()) %>% 
+  pivot_longer(cols = -c(id, Species)) %>% 
+  separate(col = name, into = c('Flower_part', 'Measure'), sep = '\\.') %>% 
+  pivot_wider(id_cols = c(id, Species, Flower_part), names_from = Measure, values_from = value)
+
+ggplot(iris_half_longed, aes(x = Length, y = Width, col = Species))+
+  geom_point()+
+  facet_grid(Flower_part ~ .)+
+  theme(legend.position = 'bottom')
+```
+
+![Pivot_half](/Users/anchi/Documents/pivot1.png)
+![Pivot_half_res](/Users/anchi/Documents/pivot1_res.png)
+
+
+```{r}
+iris_long <- iris %>% 
+  pivot_longer(cols = -Species) %>% 
+  separate(col = name, into = c('Flower_part', 'Measure'), sep = '\\.') 
+
+ggplot(iris_long, aes(x = value, fill = Species))+
+  geom_density(alpha = 0.5, col = 'transparent')+
+  facet_grid(Flower_part ~ Measure, scales = 'free')+
+  theme_bw()
+```
+
+![Pivot](/Users/anchi/Documents/pivot2.png)
+
+![Pivotres](/Users/anchi/Documents/pivot2_res.png)
+
+# Tidyr
+
+## NA's
+
+Главное что надо знать про пропущенные значение - нет консенсуса по поводу того, что делать с пропущенными данными.
+
+Есть три основных подхода - удалять, игнорировать или учитывать, заменять.
+
+### Удаление
+
+Главное преимущество подхода - набор данных получается чистым и над ним легко проводить анализ. Минус - вы теряете часть данных. Может быть существенную.
+
+```{r}
+drop_na()
+```
+
+### Учитывание
+
+Данный подход предлагает оставлять пропущенные значение и возможно как-то их учитывать. Отсутсвие информации - тоже информация. Это может быть важно в опросах. Например исследователю важно понимать, какой процент людей согласился пройти опрос (целиком или какие-то части). Главный плюс - все данные на месте, если говорить о наблюдениях. Минус - остаются пропущенные значения и некоторые статистические тесты или функции не могут с этим работать (или работают с погрешностью).
+
+### Замена
+
+Компромиссный вариант. Плюсы очевидны: функцию работают как надо, все наблюдения на месте. Но замена может сильно повлиять на статистические выводы. например простая замена пропущенного значения в числовой переменной может привести к тому, что распределение этой переменной будет сильно смещено к среднему.
+
+```{r}
+penguins %>% 
+  fill(sex, .direction = 'down')
+
+penguins %>% 
+  replace_na(list(bill_length_mm = mean(.$bill_length_mm, na.rm = TRUE)))
+
+penguins %>% 
+  group_by(species, sex) %>% 
+  mutate(bill_length_mm = replace_na(bill_length_mm, mean(.$bill_length_mm, na.rm = TRUE)))
+```
+
+
+## Pivot
+
+Часто данные приходят в неподходящих размерах, скажем так. Например, значения наблюдений по разным годам находятся в отдельных колонках. Такие данные лучше переводить в длинный формат.
+
+```{r}
+df <- tibble(
+  department = c('IT', 'Логистика', 'Коммерческий отдел', 'Бухгалтерия'),
+  empl_2019 = c(10, 40, 5, 5),
+  empl_2020 = c(11, 35, 5, 5),
+  empl_2021 = c(15, 45, 6, 7),
+  empl_2022 = c(20, 70, 10, 7),
+  empl_2023 = c(17, 50, 8, 7)
+)
+
+pivot_longer(
+  df,
+  cols = -department,
+  names_to = 'year',
+  names_transform = list(year = compose(as.integer, partial(str_sub, start = -4)))
+)
+```
+
+Бывает и наоборот: слишком узкие наблюдения и их бы надо развернуть в широкий формат.
+
+```{r}
+df <- expand_grid(
+  department = c('IT', 'Логистика', 'Коммерческий отдел', 'Бухгалтерия'),
+  index = c('количество сотрудников', 'ФОТ'),
+) %>% 
+  mutate(
+    `2019` = c(10, 10 * 50000, 40, 40 * 30000, 5, 5 * 40000, 5, 5 * 40000),
+    `2020` = c(11, 11 * 55000, 35, 35 * 30000, 5, 5 * 40000, 5, 5 * 40000),
+    `2021` = c(15, 15 * 60000, 45, 45 * 35000, 6, 6 * 50000, 7, 7 * 35000),
+    `2022` = c(20, 20 * 60000, 70, 70 * 35000, 10, 10 * 50000, 7, 7 * 35000),
+    `2023` = c(17, 17 * 50000, 50, 50 * 30000, 8, 8 * 45000, 7, 7 * 35000)
+  )
+
+df %>% 
+  pivot_longer(
+  cols = -c(department, index),
+  names_to = 'year',
+  names_transform = list(year = compose(as.integer, partial(str_sub, start = -4)))
+) %>% 
+  pivot_wider(
+    names_from = index,
+    values_from = value
+  )
+```
+
+
+
+## helpers from readr
+
+В пакете readr при чтении табличных файлов можно не отдаваться на волю парсера в определении типов колонок, а указывать тип каждой колонки явно с помощью аргумента col_types.
+
+```{r}
+write_tsv(penguins, 'pengs.tsv')
+
+read_tsv('pengs.tsv', col_types = 'ffddiif_')
+read_tsv('lessons/module3/pengs.tsv', col_types = cols(
+  col_factor(),
+  col_factor(),
+  col_double(),
+  col_double(),
+  col_integer(),
+  col_integer(),
+  col_factor(),
+  col_skip()
+))
+```
+
+Это всё сильно упростит жизнь и не придётся заниматься приведением типов после обработки.
+
+
+# Stringr
+
+Stringr - удобный и простой пакет для работы со строками в R. Он является частью экосистемы tidyverse. В стрингр входят разнообразные функции для манипулций с векторами строковых типов.
+
+## Поиск совпадений
+
+``` {r}
+pandp <- janeaustenr::prideprejudice
+# возвращает логический вектор с TRUE на позициях с совпадениями
+# аргумент negate наоборот указывает на строки, куда паттерн не входит
+str_detect(string = pandp, pattern = 'London')
+
+# указывает на начальную и конечную позицию первого вхождения паттерна в строку (элемент строкового вектора). _all - все вхождения.
+str_locate(string = pandp, pattern = 'London')
+str_locate_all(string = pandp, pattern = 'London')
+
+# возвращает TRUE если строка начинается на паттерн.
+# также есть аргумент negate
+str_starts(string = pandp, pattern = 'London')
+str_ends(string = pandp, pattern = 'London')
+
+# возвращает количество вхождений паттерна в строку
+str_count(string = pandp, pattern = 'London')
+```
+
+## Извлечение и изменение текста
+
+```{r}
+# извлекает первое вхождение гуппы паттернов из строки
+# (_all - все вхождения)
+str_match(string = pandp, pattern = '(London)(moor)(grass)')
+str_match_all(string = pandp, pattern = '(London)(moor)(grass)')
+
+# Извлекает первое вхождение паттерна из строки
+# или все для вариант _all
+str_extract(string = pandp, pattern = 'London')
+str_extract_all(string = pandp, pattern = 'London')
+
+# Заменяет паттерн в строке на заданный текст
+str_replace(string = pandp, pattern = 'London', replacement = 'Paris')
+str_replace_all(string = pandp, pattern = 'London', replacement = 'Paris')
+
+# Удаляет паттерн из строки
+str_remove(string = pandp, pattern = 'London')
+
+# Разделяет строку (элемент вектора) на элементы по указанному разделителю
+str_split(string = pandp, pattern = ',')
+
+# Извлекает слова со start до end
+word(string = pandp, start = 1)
+
+# Извлекает из строки полдстроку, начинающуюся с start позици и заканчивающейся end позицией
+str_sub(string = pandp, start = -5)
+```
+
+
+## Немного про glue
+
+пакет glue позволяет вам вставлять в строку значение переменных и в целом результаты каких-то вызовов.
+
+```{r}
+library(glue)
+x <- rnorm(1000)
+
+cat(
+  glue('The first element of x is {x[1]}\nThe mean of x is {mean(x)}')
+)
+```
+
