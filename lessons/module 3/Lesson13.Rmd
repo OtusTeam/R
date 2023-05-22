@@ -1,0 +1,234 @@
+---
+title: "Урок тринадцатый: Преобразование данных с помощью dplyr"
+author: "Дмитрий Володин"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Выборка колонок и изменение порядка
+
+Все глаголы будем изучать на датасете diamonds из ggplot2
+
+select - выборка колонок по имени
+
+```{r}
+library(dplyr)
+
+diamonds <- ggplot2::diamonds
+
+select(.data = diamonds, cut, price, carat)
+
+diamonds %>% 
+  select(price, carat, cut)
+```
+
+rename - переименование столбцов
+
+```{r}
+diamonds %>% 
+  select(Price = price, cut, carat)
+
+diamonds %>% 
+  rename(Cut = cut)
+```
+
+relocate - меняет позиции у столбцов
+
+```{r}
+diamonds %>% 
+  relocate(price, cut, carat)
+
+diamonds %>% 
+  relocate(price, .before = carat)
+
+diamonds %>% 
+  relocate(price, carat, .after = last_col())
+```
+
+arrange - сортировка датафрейма
+
+```{r}
+diamonds %>% 
+  arrange(clarity)
+
+diamonds %>% 
+  arrange(clarity, color)
+
+diamonds %>% 
+  arrange(desc(clarity), -price)
+
+diamonds %>% 
+  group_by(cut) %>% 
+  arrange(-price, .by_group = TRUE)
+```
+
+
+# Фильтрация
+
+head, tail - выборка первых или последних строк. По умолчанию - 6.
+
+```{r}
+diamonds %>% 
+  head(10)
+
+diamonds %>% 
+  tail(20)
+```
+
+distinct - удаление дублирующихся строк
+
+```{r}
+diamonds %>% 
+  distinct()
+
+diamonds %>% 
+  distinct(cut, color)
+
+diamonds %>% 
+  distinct(cut, color, .keep_all = TRUE)
+```
+
+slice - набор функций для выборки строк
+
+```{r}
+diamonds %>% 
+  slice(11:20)
+
+diamonds %>% 
+  slice_min(price)
+
+diamonds %>% 
+  group_by(cut) %>% 
+  slice_max(price, n = 2)
+
+diamonds %>% 
+  slice_sample(prop = 0.1, weight_by = carat, by = carat)
+```
+
+filter - выборка строк по условию.
+
+```{r}
+diamonds %>% 
+  filter(price > 600)
+
+diamonds %>% 
+  filter(price > 600, carat > 1)
+
+diamonds %>% 
+  filter(price > 600 | carat > 1)
+```
+
+
+# Изменение и агрегация
+
+mutate - изменение значений в колонках или вычисление новых колонок
+
+```{r}
+diamonds %>% 
+  mutate(price_for_carat = price / carat)
+
+diamonds %>% 
+  mutate(
+    price_for_carat = price / carat,
+    volume = x * y * z
+  )
+
+diamonds %>% 
+  mutate(cut = as.integer(cut))
+```
+
+summarise - вычсляет итоговые метрики для датафрейма. В отличие от mutate, результат выполнения функции внутри summarise обязан возвращать структуру длиной 1.
+
+```{r}
+diamonds %>% 
+  summarise(mean_price = mean(price))
+
+diamonds %>% 
+  summarise(
+    mean_price = mean(price),
+    sd_price = sd(price)
+  )
+
+diamonds %>% 
+  summarise(mean_price = mean(price), .by = c(cut, clarity))
+
+diamonds %>% 
+  count(cut, clarity)
+```
+
+group_by создаёт особый вид тибблов - сгрупированный тиббл. Это как будто несколько тибблов (по одному на каждую группу) в одном и большинство действий с таким тибблом будут происходить внутри группы.
+
+rowwise - особый вид группировки, где каждая строчка - отдельная группа.
+
+```{r}
+diamonds %>% 
+  group_by(cut, clarity)
+
+diamonds %>% 
+  group_by(cut, clarity) %>% 
+  group_by(color_num = as.integer(color), .add = TRUE) %>% 
+  summarise(mean_price = mean(price), .groups = 'drop')
+
+diamonds %>% 
+  group_by(cut, clarity) %>% 
+  mutate(rel_price = price / sum(price), .after = price) %>% 
+  ungroup()
+
+diamonds %>% 
+  rowwise() %>% 
+  mutate(min_dim = min(x, y, z), .before = x)
+```
+
+
+# Tidy select
+
+Tidy select - принцип для гибкого и функционального выбора колонок (полей, переменных). Как просто выбора, так и выбора для вычисления значений с помощью summarise или mutate
+
+```{r}
+diamonds %>% 
+  select(!last_col())
+
+diamonds %>% 
+  select(x:z)
+
+diamonds %>% 
+  select(where(is.factor) | price)
+
+diamonds %>% 
+  select(where(is.numeric) & matches('^.$'))
+
+diamonds %>% 
+  relocate(last_col())
+
+diamonds %>% 
+  rename_with(.fn = ~ glue::glue('my_{.x}'), .cols = matches('^.$'))
+
+diamonds %>% 
+  mutate(
+    across(
+      .cols = where(is.numeric),
+      .fns = as.character
+    )
+  )
+
+palmerpenguins::penguins %>% 
+  group_by(species, sex) %>% 
+  mutate(
+    across(
+      .cols = where(~ sum(is.na(.x)) > 0) & where(is.numeric),
+      .fns = ~ if_else(is.na(.x), mean(.x, na.rm = TRUE), .x)
+    )
+  )
+
+diamonds %>% 
+  group_by(cut, color, clarity) %>% 
+  summarise(
+    across(
+      .cols = where(is.numeric) & matches('^.$'),
+      .fns = c(mean = mean, sd = sd, max = max, min = min),
+      .names = '{.fn}_of_{.col}'
+    ),
+    .groups = 'drop'
+  )
+```
+
