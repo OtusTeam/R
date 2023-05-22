@@ -61,7 +61,10 @@ ggplot(iris_long, aes(x = value, fill = Species))+
 Главное преимущество подхода - набор данных получается чистым и над ним легко проводить анализ. Минус - вы теряете часть данных. Может быть существенную.
 
 ```{r}
-drop_na()
+library(tidyr)
+library(palmerpenguins)
+
+drop_na(data = penguins)
 ```
 
 ### Учитывание
