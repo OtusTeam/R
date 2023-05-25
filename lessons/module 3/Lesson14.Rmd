@@ -1,0 +1,151 @@
+---
+title: "Урок четырнадцатый: Элементы функционального программирования в purrr"
+author: "Дмитрий Володин"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# map, walk, modify
+
+```{r}
+library(tidyverse)
+
+diamonds_list <- replicate(
+  100,
+  diamonds %>% 
+    slice_sample(prop = 0.8, by = cut),
+  simplify = FALSE
+)
+
+map(.x = diamonds_list, .f = ~ lm(price ~ carat, data = .x))
+
+map(.x = diamonds_list, .f = ~ lm(price ~ carat, data = .x)) %>% 
+  map(.x = ., .f = broom::glance) %>% 
+  map(.x = ., .f = 'sigma') %>% 
+  unlist()
+
+as_tibble(mtcars) %>% 
+  modify(
+    .x = .,
+    .f = mean
+  )
+
+walk(
+  .x = diamonds_list,
+  .f = glimpse
+)
+
+diamonds_list[1:2] %>% 
+  map(~ select(.x, where(is.numeric))) %>% 
+  pwalk(
+    .l = .,
+    .f = \(x, y) print(t.test(x ,y))
+  )
+
+diamonds_list %>% 
+  map(as.list) %>% 
+  map_depth(
+    .x = .,
+    .depth = 2,
+    .f = length
+  ) %>% 
+  unlist() %>% 
+  length()
+```
+
+# reduce, accumulate
+
+```{r}
+reduce(
+  .x = diamonds_list,
+  .f = bind_rows
+)
+
+accumulate(.x = 1:10, .f = `+`)
+
+reduce(
+  .x = 1:5,
+  .f = \(x, y) {
+    print(glue::glue('x = {x}; y = {y}'))
+    x + y
+  }
+)
+
+reduce(
+  .x = rep(1000, 60),
+  .f = \(x, y) x * (1 + 0.06 / 12) + y,
+  .init = 100000
+)
+
+accumulate(
+  .x = rep(1000, 60),
+  .f = \(x, y) x * (1 + 0.06 / 12) + y
+)
+
+reduce(
+  2:4,
+  ~ .y ^ .x
+)
+
+reduce(
+  2:4,
+  function(x, y) y ^ x
+)
+
+reduce(
+  2:4,
+  \(x, y) y ^ x
+)
+```
+
+# Lambdas
+
+```{r}
+diamonds_list %>% 
+  map(function(x) {
+    max_k <- floor(sqrt(nrow(x)))
+    cls <- map(seq_len(max_k), function(k) {
+      res <- x %>% select(where(is.numeric)) %>% kmeans(k)
+      res$betweenss
+    }) %>% unlist()
+    which(cls >= 0.8 * max(cls))[1]
+  })
+```
+
+# compose, negate, partial
+
+```{r}
+compose(floor, sqrt, nrow)
+
+partial(map, .f = partial(kmeans, centers = 10))
+
+kmeans_3 <- partial(kmeans, centers = 3)
+diamonds_list %>% 
+  map(~ .x %>% select(where(is.numeric))) %>% 
+  map(kmeans_3)
+
+diamonds %>% 
+  select(negate(where(is.numeric)))
+```
+
+# possibly, safely, quietly
+
+```{r}
+p_kmeans <- possibly(.f = kmeans, otherwise = 'Too many centers')
+replicate(10, mtcars, simplify = FALSE) %>% 
+  map(\(x) p_kmeans(x, centers = floor(runif(1, min = 0, max = 5))))
+
+s_kmeans <- safely(.f = kmeans, otherwise = 'Too many centers')
+s_kmeans(mtcars, 0)
+
+logged_succ <- function(x) {
+  print(glue::glue('Adding 1 to {x}'))
+  return(x + 1)
+}
+
+logged_succ(5)
+
+quietly(logged_succ)(5)
+```
+
+
