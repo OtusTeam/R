@@ -1,0 +1,189 @@
+---
+title: "Урок пятнадцатый: Объединение данных: join и bind"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## bind объединение
+
+В случае когда нам не нужно устанавливать связи между данными можно
+воспользоваться объединение с использованием команд bind:
+
+`rbind` - объедение строк (row bind)
+
+`cbind` - объедение столбцов (column bind)
+
+```{r}
+
+# toy example
+cbind(1:4, c = 2:3) # col bind
+rbind(1:4, c = 2:3) # row bind
+
+
+
+# data
+data("mtcars")
+
+x = mtcars[1:3,1:3]
+y = mtcars[2:4,3:4]
+z = mtcars[4:6,4:6]
+
+
+## not correct
+#rbind(x[,1:2],y)
+cbind(x,y)
+
+library(dplyr)
+bind_rows(x,y)
+bind_rows(x,y,.id = "inputname")
+bind_cols(x,y)
+
+```
+
+## join объединение
+
+В случае когда при объединение нам нужно учитывать связи в данных
+используем базовую команду `merge` или команды \*`_join` из библиотеки
+dplyr
+
+```{r}
+
+merge(x[,1:2],y,all = T)
+# by row names ?? NO
+intersect(names(x), names(y))
+
+
+merge(x,y,by=0)
+merge(x,y,by='row.names')
+
+
+# merge Ideal world
+# R Inner Join
+df2 <- merge(x,y, by = 0)
+print(df2)
+
+# R left outer join data.frames
+df2 <- merge(x,y, by = 0, all.x=TRUE)
+print(df2)
+
+# R right outer join data.frames
+df2 <- merge(x,y, by = 0, all.y=TRUE)
+print(df2)
+
+# R full outer join data.frames
+df2 <- merge(x,y, by = 0, all=TRUE)
+print(df2)
+
+
+# R Cross (cartesian) join data.frames
+df2 <- merge(x,y, by = NULL)
+print(df2)
+
+library(stringr)
+# same names 
+x$car_brand = str_split_fixed(rownames(x),' ',2)[,1]
+x$car_model = str_split_fixed(rownames(x),' ',2)[,2]
+y$brand = str_split_fixed(rownames(y),' ',2)[,1]
+y$car_model = str_split_fixed(rownames(y),' ',2)[,2]
+z$brand = str_split_fixed(rownames(z),' ',2)[,1]
+z$car_model = str_split_fixed(rownames(z),' ',2)[,2]
+
+df2 <- merge(x,y, by = 'car_model')
+
+## different names
+df2 <- merge(x,y, by.x = 'car_brand',by.y = 'brand')
+df2 <- merge(x,y, by.x = c('car_brand','car_model'),by.y = c('brand','car_model'))
+
+# dplyr
+library(dplyr)
+library(tibble)
+rownames_to_column(y)
+inner_join(rownames_to_column(x),rownames_to_column(y),by='rowname')
+
+inner_join(x,y,by='car_model')
+inner_join(x,y,by=c('car_brand'='brand'))
+inner_join(x,y,by=c('car_brand'='brand','car_model'))
+inner_join(x,y,by=c('car_brand'='brand','car_model'='car_model'))
+
+
+# inner join using dplyr package
+df2 = x %>% inner_join(y, by = 'car_model')
+
+
+# left join using dplyr package
+df2 = x %>% left_join(y, by = 'car_model')
+
+# right join using dplyr package
+df2 = x %>% right_join(y, by = 'car_model')
+
+
+# full join using dplyr package
+df2 = x %>% full_join(x, by = 'car_model',suffix = c(".first", ".second"))
+df2
+
+# left anti join data.frames
+df2 = x %>% anti_join(y, by = c('car_brand'='brand','car_model'='car_model'))
+df2
+
+# right anti join data.frames
+df2 = y %>% anti_join(x, by = c('brand'='car_brand','car_model'='car_model'))
+df2
+
+# left semi join
+df2 = x %>% semi_join(y, by = c('car_brand'='brand','car_model'='car_model'))
+df2
+
+```
+
+## Объединение на основе неравенств
+Не всегда данные необходимо объединять на основе равенств. Иногда возникают ситуации, когда нужно объединить на основе какого-то неравенства (Non-equi join). Например: дата рекламной акции и дата продажи. Возможно, что необходимо рассматривать методы нечеткой логики и использовать ближайшее к дате событие - в таком варианте мы используем скользящий join (rolling joins).
+
+```{r}
+x$sale_dates = sample(seq(Sys.Date()-20,Sys.Date(),1),3)
+y$marketing_dates  = sample(seq(Sys.Date()-20,Sys.Date(),1),3)
+
+# Non-equi join
+left_join(x, y, by = join_by(sale_dates >= marketing_dates))
+# Rolling joins
+left_join(x, y, by = join_by(closest(sale_dates>=marketing_dates)))
+```
+## Множественное объединение
+
+Для одновременного объеденения данных с использованием join
+воспользуемся элементами функционального программирования.
+
+```{r}
+# Join all data frames in list
+list_df = list(x,y,z)
+Reduce(function(x, y) merge(x, y, all=TRUE,by = 'car_model'), list_df)
+
+
+# Join all data frames in list
+list_df = list(x,y,z)
+Reduce(function(x, y) full_join(x, y,by = 'car_model'), list_df)
+
+library(purrr)
+# Join multiple data.frames
+list_df = list(x,y,z)
+df2 <- list_df %>% reduce(full_join, by='car_model')
+df2
+
+```
+
+## Объединение временных рядов
+
+При работе с временными рядами и в частности с библиотекой `xts`
+достаточно использовать команду `merge` без всяких параметров
+
+```{r}
+library(xts)
+dates1 = seq(Sys.Date()-9,Sys.Date(),1)
+dates2 = seq(Sys.Date()-12,Sys.Date()-3,1)
+ts1 = xts(1:10,dates1)
+ts2 = xts(3:12,dates2)
+merge(ts1,ts2)
+```
