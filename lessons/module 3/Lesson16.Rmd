@@ -1,0 +1,278 @@
+---
+title: "Урок шестнадцатый: Быстро и лаконично: data.table"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## Быстро загрузить/выгрузить
+
+Одни из первых и наиболее полюбившиеся команды пользователям - очень
+быстрочтение и запись:
+
+`fread` - команда быстрого чтения
+
+`fwrite` - команда быстрой записи
+
+```{r}
+library(data.table)
+size_of_sample = 10^5 # you can set more, if you want to test read/write speed
+fwrite(x = data.table(a=rnorm(size_of_sample),b=rnorm(size_of_sample)),'my_test_data_table_example.csv')
+file.size('my_test_data_table_example.csv')/1024^2 # size in mb
+x = fread('my_test_data_table_example.csv')
+```
+
+## Создание data.table
+
+Таблица данных создается с использованием команд `fread`, `data.table`,
+`as.data.table`
+
+```{r}
+# toy example
+x = data.table(a=rnorm(size_of_sample),b=rnorm(size_of_sample),d=rnorm(size_of_sample))
+y = data.frame(a=rnorm(size_of_sample),b=rnorm(size_of_sample),d=rnorm(size_of_sample)) #as example - from bd
+class(y)
+x = data.table(y) # from data.frame to data table
+class(x)
+```
+
+## Выборка данных
+
+Выборка очень похожа на синтаксис `data.frame`. Для работы с несколькими
+полями используется `.` В data.table `.` и `list` являются синонимами.
+
+```{r}
+# extract
+x[1:4]
+x[1:4,]
+x[,2]
+x[1,1]
+x[,c(2,3)]
+head(x$b)
+head(x[,b])
+x[,list(b,d)]
+x[,.(b,d)]
+# . = list
+x[1:3,.(b,d)]
+```
+
+## Выборка по условию
+
+Можно использовать классический синтаксис data.frame, а можно
+использовать более сокращенный
+
+```{r}
+x[x$a>0,]
+x[a>0 & b<0,.(d)]
+```
+
+## Создание новых столбцов
+
+Для создания новых столбцов используем оператор `:=`
+
+```{r}
+# := create
+# compute
+x[,sum(a)]
+x[,sum1:=sum(a)]
+x[,':='(f1=sum(a),f2=mean(a),f3=sd(a),f4=sd(a),f5=sd(a))]
+x[1,':='(f1=0,f2=1,f3=2)]
+```
+
+## Удаление столбцов
+
+Для удаление столбцов присваиваем значение `NULL`
+
+```{r}
+#delete
+x[,f3:=NULL]
+x[,':='(f4=NULL,f5=NULL)]
+```
+
+## Упорядочивание
+
+Сортировка происходит с использованием функции `order`, которая является
+внутренне оптимизированной и упорядочивает гораздо быстрее чем прочие
+функции
+
+```{r}
+# order
+x[order(-b,a)]
+```
+
+## Агрегирования данных
+
+Для агрегирования данные записываем на 3 место (после 2 запятой) функцию
+`by` или `keyby`. Разница между `by` и `keyby` в том, что последняя
+создает еще и автоматом сразу индекс. Ниже представлены различные
+вариант синтаксима указания столба по которому агрегируем.
+
+```{r}
+# group by
+x[,sum(a),by = f1]
+x[,sum(a),by = 'f1']
+x[,sum(a),by = 'f1,f2']
+x[,sum(a),by = .(f1,f2)]
+x[,sum(a),keyby = .(f1,f2)]
+x[,.(f_sum = sum(a),f_mean = mean(a)),keyby = .(f1,f2)]
+x[a>0,.(f_sum = sum(a),f_mean = mean(a)),keyby = .(f1,f2)]
+```
+
+## Специальных знаки
+
+В data.table существуют специальные знаки: `.N`,`.SD`,`.I`
+
+`.N` - подсчитывает количество элементов (аналог length)
+
+`.SD` - делает подвыборку данных (Subsample of Data)
+
+`.I` - выдает индекс элемента
+
+```{r}
+#. .N. .SD
+x$dummy = c(rep(0,size_of_sample/2),rep(1,size_of_sample/2))
+x[,a[1],by=dummy]
+#x[,a[length(a)],by=dummy] #bad
+x[,a[.N],by=dummy]
+x[,.SD[1],by=dummy]
+x[,.SD[.N],by=dummy]
+x[,.SD[.N],by=dummy,.SDcols = c('a','b','d')]
+x[1:20,.SD[.N],by=dummy][,(a:d)]
+x[,.I[.N],by=dummy]
+```
+
+## Принудительное присвоение set
+
+Можно присваивать принудительно значения командой `set` Можно изменить
+название необходимого столбца
+
+```{r}
+set(x,1,1,123123)
+setnames(x,'a','a2')
+x
+```
+
+## Индексы
+
+Для оптимизации вычислений в data.table используется понятия индексы или
+ключи. По ключевому полю (полям) вычисления происходят гораздо быстрее.
+Некоторые команды по умолчанию работают с индексами (например join)
+
+```{r}
+#key
+setkey(x,dummy)
+key(x)
+```
+
+## JOIN
+
+```{r}
+y = data.table(my_key=1:5,my_dummy = rep(0,5),f13 = letters[1:5])
+# x[y] # not working cause see next
+# set index to x and y
+setkey(y,my_key)
+key(y) 
+x[,my_key:=1:.N]
+setkey(x,my_key)
+key(x) 
+x[y]
+
+merge(x,y)
+merge(x,y, all.x=TRUE)
+merge(x,y, all.y=TRUE)
+merge(x,y, all=TRUE)
+
+y[x,on = .(my_dummy=f1)] # join on
+x[y,on = .(b>my_key)] #non equi join
+```
+
+## bind объединение
+
+bind объединение работает точно также как и с data.frame
+
+```{r}
+# rbind(x,y)
+cbind(x,y)
+```
+
+## Изменение формы
+
+Можно изменять форму данных из вертикальной в горизонтальную (`dcast`) и
+наоборот (`melt`)
+
+```{r}
+# reshape
+z = dcast(x,dummy~my_key,value.var = c('b','d'))
+z[1:5,1:5]
+melt(z,id.vars = 'dummy',measure.vars = patterns('^','^b'),variable.name = 'y',value.name = c('a','b'))
+```
+
+## Применение функции к столбцам
+
+Можно применить одну функции сразу ко всем столбцам
+
+```{r}
+# apply functions many columns
+x[,lapply(.SD,mean)]
+# only few cols
+cols = c('b','d')
+x[,paste0(cols,'_agg'):=lapply(.SD,mean),.SDcols = cols]
+```
+
+# Функции сдвига
+
+Для сдвига значение переменной используем функцию `shift`
+
+```{r}
+x[,x_lag:=shift(b,1),dummy]
+x[,x_lag:=shift(b,1,type = 'lead'),dummy]
+```
+
+# Практический пример
+
+Задача: "Поход по барам: Определение опьянения"
+
+Основные таблицы:
+
+-   данные с телефона (акселерометра) и координатами x,y,z
+
+-   данные замеров уровня алкоголя в организме
+
+У этих данных разная периодичность. Данные с телефона снимаются раз в несколько минут, а уровень алкоголя в измеряется раз в несколько десятков минут. Нужно сперва объединить эти данные с использованием rolling join и после этого можно уже для каждого события измерения уровня алкоголя считать агрегирующий метрики по данным с акселерометра.
+
+ссылка на данные:
+<https://archive.ics.uci.edu/ml/machine-learning-databases/00515/>
+
+Для запуска кода раскомментируйте код
+
+```{r}
+################ uncomment this example ############
+# x = fread('data-tac/all_accelerometer_data_pids_13.csv')
+# uniq_pid = unique(x$pid)
+# 
+# i=1
+# for(i in 1:length(uniq_pid))
+# {
+#   tac = fread(paste0('data-tac/clean_tac/',uniq_pid,'_clean_TAC.csv')[i])
+#   tac$pid = uniq_pid[i]
+#   if(i==1) tac_data = tac else tac_data = rbind(tac_data,tac)
+# }
+# 
+# tac_data$my_time = as.POSIXct(tac_data$timestamp, origin="1970-01-01")
+# x$my_time = as.POSIXct(x$time/1000, origin="1970-01-01")
+# x = x[time>0]
+# tac_res = tac_data[x,on = .(pid=pid,my_time=my_time),roll = -Inf]
+# tac_res = na.omit(tac_res)
+# 
+# my_model_data = tac_res[,.(.N,sdXYZ=sd(x)+sd(y)+sd(z),drunk = as.numeric(TAC_Reading>0.08)),by='TAC_Reading,pid']
+# my_model_data = na.omit(my_model_data)
+# summary(lm(TAC_Reading~sdXYZ,data = my_model_data))
+# 
+# # add phones 
+# phones = fread('data-tac/phone_types.csv')
+# my_model_data = my_model_data[phones,on = .(pid=pid)]
+# summary(lm(TAC_Reading~sdXYZ+phonetype,data = my_model_data))
+```
