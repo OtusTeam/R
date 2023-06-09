@@ -1,0 +1,67 @@
+---
+title: "Урок семнадцатый: Базовая графика и введение в grammar of graphics"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## Базовый уровень графики
+С использованием команды plot можно визуализировать сразу все изменерения. Но получится по умолчанию не очень красиво.
+
+```{r}
+data("mtcars")
+plot(mtcars)
+str(mtcars)
+```
+
+
+## Усиковая диаграмма
+Построим усиковую диаграмму с использованием функции boxplot
+
+```{r}
+boxplot(mpg~vs+am+cyl,data = mtcars)
+
+legend("bottomright",
+       legend = c("Females", "Males"),
+       col = c('red', 'blue'),
+       pch = c(16, 16))
+```
+
+## Улучшаем базовую графику
+Сделаем визуализацию нашего массива данных более красивой. Разделим авто-данные на 2 массива: с автоматической и механической коробкой передач и визуализируем из разными цветами. Дополним график подписями, цветами, зададим дополнительные графические параметры.
+
+```{r}
+library(scales)
+auto_cars = subset(mtcars,am==1)
+manual_cars = subset(mtcars,am==0)
+
+plot(auto_cars$mpg,log(auto_cars$hp),
+     pch=16,
+     col=alpha("purple", .7),
+     xlab='Miles per gallon',
+     ylab='Hourse power',
+     xlim=c(10,40),
+     ylim=c(4,6),
+     cex=.7,cex.sub=.5,main = 'Auto vs manual',sub = 'In this plot you can find relation between \n gasoline consumption and power of the car')
+grid()
+points(manual_cars$mpg,log(manual_cars$hp),
+       col=alpha("darkgreen", .4),
+       pch=17,cex=.9)
+
+legend("topright",
+       legend = c("auto",'manual'),
+       col = c('purple','darkgreen'),
+       pch = c(16,17))
+
+text(15, 5.8, "this is Maserati Bora",
+     cex = .8,pos=4)
+
+text(30, 4, "Honda Civic with 52HP",
+     cex = .8,pos=4)
+abline(lm(log(hp)~mpg,auto_cars),col=alpha("purple", .3),lty=3)
+abline(lm(log(hp)~mpg,manual_cars),col=alpha("darkgreen", .2),lty=2)
+
+```
