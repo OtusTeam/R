@@ -1,0 +1,154 @@
+---
+title: "Урок восемнадцатый: Ggplot2: построение графиков слой за слоем"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## Слои
+Более подробная инфомарция о возможных типах геометрии: https://ggplot2.tidyverse.org
+
+```{r}
+library(ggplot2)
+data(mtcars)
+# нет эстетики и геометрии
+ggplot(data = mtcars)
+# нет геометрии
+ggplot(data = mtcars,aes(x = hp))
+
+#есть геометрия и эстетика
+ggplot(data = mtcars,aes(x = hp)) + geom_bar()
+# для случая одного слоя - нет разницы где оставляем эстетику. 
+# когда больше слоев - разница есть
+ggplot(data = mtcars) + geom_bar(aes(x = hp))
+
+# изменим размер бара
+ggplot(data = mtcars) + geom_bar(aes(x = cyl), width = .4)
+# добавим новое измерение
+ggplot(data = mtcars) + geom_bar(aes(x = as.factor(cyl),fill=as.factor(cyl)))
+
+# добавим плотность распределения
+ggplot(mtcars, aes(hp,fill=factor(carb),alpha=.2)) + geom_density(adjust=.3)
+
+# наслоение друг на друга
+ggplot(mtcars, aes(hp,fill=factor(carb),alpha=.2)) + geom_density(position = "stack",adjust=3)
+
+
+
+
+# создадим новую переменную 
+mtcars$hp2 = mtcars$hp +rnorm(nrow(mtcars),30,10)
+# отобразим в 2 слоя старую и новую переменные
+ggplot(mtcars, aes(x=mpg, y=hp)) +
+  geom_line(colour="black", linetype = 2) + 
+  geom_line(aes(x=mpg, y=hp2), colour="red", linetype = 1)
+
+# отображение точками 6 измерений
+ggplot(mtcars, aes(x=mpg, y=hp, 
+                   color=disp,size=wt,
+                   shape=factor(gear),alpha=qsec)) +
+                    geom_point() 
+
+
+
+# добавим текст и линии
+ggplot(mtcars, aes(mpg, hp,color=as.factor(vs), label = rownames(mtcars))) +
+  geom_point() +
+  geom_hline(yintercept = 200) + geom_text(check_overlap = TRUE)
+
+
+# задаем эстетику в geom_text
+ggplot(mtcars, aes(mpg, hp,color=as.factor(vs))) +
+  geom_point() +
+  geom_hline(yintercept = 200) + 
+  geom_text(label = rownames(mtcars),check_overlap = TRUE)
+
+# вместо текста -  лейбл (текст на подложке)
+ggplot(mtcars, aes(mpg, hp,color=as.factor(vs))) +
+  geom_point() +
+  geom_hline(yintercept = 200) + 
+  geom_label(label = rownames(mtcars),colour = "black")
+
+# визуализация квадратиками
+ggplot(mtcars, aes(mpg, hp,color=as.factor(vs),size=gear)) + geom_bin2d()
+# диаграмма с областями 
+ggplot(mtcars, aes(mpg, hp,color=as.factor(vs),size=gear)) + geom_area()
+# усиковая диаграмма
+ggplot(mtcars, aes(mpg, hp,color=as.factor(vs),fill=factor(gear))) + geom_boxplot()
+# hex диаграмма
+ggplot(mtcars, aes(mpg, hp)) + geom_hex()
+head(diamonds)
+# # hex диаграмма на более подходящих данных
+ggplot(diamonds, aes(carat, price)) + geom_hex()
+
+# насечки и квантильная регрессия
+p = ggplot(mtcars, aes(mpg, hp)) + geom_line() +  geom_quantile()+
+  geom_rug()
+
+# добавить отрезок и дугу
+df <- data.frame(x1 = 15, x2 = 25, y1 = 100, y2 = 300)
+p +
+  geom_curve(aes(x = x1, y = y1, xend = x2, yend = y2, colour = "curve"), data = df) +
+  geom_segment(aes(x = x1, y = y1, xend = x2, yend = y2, colour = "segment"), data = df)
+```
+
+
+## Статистические преобразования
+
+```{r}
+
+# добавим линию тренда
+ggplot(mtcars, aes(mpg, hp)) +
+  geom_point() +
+  geom_smooth(method='lm')
+
+# добавим линию тренда по группам
+ggplot(mtcars, aes(x=mpg, y=hp, 
+                   color=disp,size=wt, group = (vs),
+                   shape=factor(gear),alpha=qsec)) +
+  geom_point() +
+  geom_smooth(method='lm')
+
+# без доверительных интервалов
+ggplot(mtcars, aes(mpg, hp,color=as.factor(vs),size=gear)) +
+  geom_point() +
+  geom_smooth(method='lm',se = F)
+# маленькие точки с эллипсом
+ggplot(mtcars, aes(hp, mpg)) +
+  geom_tile(aes(fill = wt)) +  stat_ellipse()
+
+# несколько эллипсов
+  ggplot(mtcars, aes(hp, mpg, color=factor(vs))) + 
+  stat_ellipse(type = "norm", linetype = 2) +
+  stat_ellipse(type = "t")
+
+# функция распределения
+ggplot(mtcars, aes(hp, mpg, color=factor(vs))) +  
+  stat_ecdf()
+# сумма по областям
+ggplot(mtcars, aes(hp, mpg, z=(disp))) +  
+  stat_summary_2d()
+
+```
+
+## Фасетки
+
+```{r}
+# разделение по строкам
+p+facet_grid(rows = vars(am))
+# разделение по столбцам
+p+facet_grid(cols = vars(am))
+# разделение по столбцам и строкам
+p+facet_grid(rows = vars(am),cols = vars(vs))
+# иной метод разделения по столбцам и строкам
+p+facet_grid(am ~ vs)
+# добавление 3 измерения в фасетку
+p+facet_grid(am + vs ~ cyl)
+# плохая визуализация
+p + facet_grid(vars(carb))
+# последовательное разделение
+p + facet_wrap(vars(carb))
+```
