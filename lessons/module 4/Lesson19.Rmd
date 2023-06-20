@@ -1,0 +1,53 @@
+---
+title: "Урок девятнадцатый: Ggplot2: шкалы, координаты и косметика"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## Настройка плотности распределения
+
+
+```{r}
+library(ggplot2)
+library(ggthemes)
+
+library(scales)
+?diamonds
+
+
+ggplot(diamonds) + geom_density(aes(price,fill=cut),alpha=.5,col=NA)+
+  #scale_fill_brewer(palette = "Spectral")+
+  scale_fill_manual(values = RColorBrewer::brewer.pal(5, "Accent"))+
+  coord_flip()
+```
+
+
+## Настройка точечной диаграммы
+
+```{r}
+
+ggplot(diamonds) + geom_point(aes(x=carat,
+                                  y=price,
+                                  color=color,
+                                  size=table,
+                                  alpha=clarity,
+                                  shape=factor(cut))) +
+  scale_x_log10('Караты',labels = number_format(),breaks = c(0.1,0.25, 0.5,0.75, 1,1.25,1.5,2,3))+ 
+  scale_y_log10('Цена',labels = dollar_format(accuracy=1,big.mark = ' '),breaks = c(500,1000,1500,2500,5000,7500,10000,15000,25000)) + 
+  scale_size_binned(breaks =c(40,50,75,80),range=c(0.01,2))+
+  scale_alpha_discrete(range = c(1, 0.6))+
+  #scale_color_discrete(terrain.colors(7))+
+  #scale_colour_brewer('Цвет',palette = "Set1")+
+  #scale_colour_brewer('Цвет',palette = 7)+
+  guides(y.sec = guide_axis(), 
+         col = guide_legend(title = "Цвет",ncol = 3, bycol = TRUE,title.theme = element_text(size = 10,face = "italic")),
+         size = guide_legend(title = "Размер",ncol = 2, bycol = TRUE,  title.theme = element_text(size = 10,face = "italic")),
+         alpha = guide_legend(title = "Прозрачность",ncol = 3, bycol = TRUE,title.theme = element_text(size = 10,face = "italic")),
+         shape = guide_legend(title = "Блеск",ncol = 3, bycol = TRUE,title.theme = element_text(size = 10,face = "italic")))+
+  theme_bw()
+
+```
