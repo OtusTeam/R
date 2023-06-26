@@ -1,0 +1,108 @@
+---
+title: "Урок двадцатый: Интерактивная графика: пакет plotly"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## ggplot+plotly = ggplotly
+Сделаем интерактивными графиками создаваемыми в ggplot2
+
+```{r}
+
+library(ggplot2)
+library(plotly)
+
+?economics
+
+p = ggplot(data=economics)+
+  geom_point(aes(psavert,uempmed))
+p
+ggplotly(p)
+
+p = ggplot(data=economics)+
+  geom_line(aes(date,psavert,col='Y1'))+
+  geom_line(aes(date,uempmed,col='Y2'))+
+  scale_color_manual(name='legtnd',
+                     values = c('Y1'='#C60038','Y2'='#1C00E2'))
+ggplotly(p)
+
+c("seagreen1", "slateblue2", "lightcoral")
+palet = colorRampPalette(c('red','blue'))
+palet(10)
+
+```
+
+
+## Синтаксис plotly
+
+```{r}
+
+plot_ly(data = economics,x = ~psavert,
+              y= ~uempmed, z = ~pop, color = ~pce,size = ~date)
+
+plot_ly(data = economics,x = ~psavert,
+              y= ~uempmed, color = ~pce,size = ~date)
+
+
+```
+## Plotly и pipe операции
+
+```{r}
+plot_ly(data = economics) %>%
+  add_lines(x=~date,y=~uempmed) %>%
+  add_lines(x=~date,y=~psavert)
+
+
+plot_ly(data = economics,x=~date) %>%
+  add_trace(y=~uempmed,name='My portfolio',mode='lines') %>%
+  add_trace(y=~psavert,name = 'All-weather',mode='lines',color=I('darkred'))
+
+
+plot_ly(data = economics) %>%
+  add_histogram(x = ~psavert)
+
+library(dplyr)
+economics %>%
+  plot_ly() %>%
+  add_histogram(x = ~psavert)
+
+plot_ly(diamonds,x =~ price/carat,color=~color,alpha=0.1) %>%
+  layout(title = 'my plot',
+         xaxis = list(title = 'my x',type='log'),
+         yaxis = list(title = 'my y',type='log'),
+         barmode='overlay')
+
+plot_ly(diamonds,x =~ carat,
+        y =~ price,color=~color,symbol =~ cut,text=~clarity,
+        alpha=0.9,size=~table,sizes = c(1,40),colors = 'Set1') %>%
+  toWebGL()
+
+```
+
+
+## Динамические графики
+
+```{r}
+economics %>%
+  group_by(year = format(date,'%Y'),month = format(date,'%m')) %>%
+  summarize(y1 = mean(psavert),
+            y2 = mean(uempmed)) %>%
+  plot_ly(x =~ y1,y =~ y2,color =~ y2,frame =~ year)
+```
+
+
+## Совмещение графиков
+
+```{r}
+p1 = plot_ly(data = economics) %>%
+  add_lines(x=~date,y=~uempmed) %>%
+  add_lines(x=~date,y=~psavert)
+
+p2 = plot_ly(data = economics,x=~uempmed) 
+subplot(p1,p2,p1,p2,nrows = 2)
+```
+
