@@ -1,0 +1,192 @@
+---
+title: "Урок двадцать первый: Визуализация таблиц: пакеты gt и flextable"
+author: "Дмитрий Володин"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# GT
+
+```{r}
+library(gt)
+library(tidyverse)
+
+countrypops %>% 
+  select(-country_code_2, -country_code_3) %>% 
+  gt(groupname_col = 'country_name',
+     rowname_col = 'year') %>%
+  summary_rows(
+    fns = list(
+      list(label = 'Min pop', fn = 'min'),
+      list(label = 'Max pop', fn = 'max')
+    ),
+    fmt = ~ fmt_number(., suffixing = TRUE),
+    side = 'top'
+  )
+
+countrypops %>% 
+  select(-country_code_2, -country_code_3) %>% 
+  group_by(country_name) %>% 
+  arrange(year, .by_group = TRUE) %>% 
+  mutate(population = c(0, diff(population)) / population) %>% 
+  gt() %>% 
+  fmt_percent(
+    columns = population
+  ) %>% 
+  tab_style(
+    style = cell_text(weight = 'bold'),
+    locations = cells_body(columns = population)
+  )
+
+countrypops %>% 
+  select(-country_code_2, -country_code_3) %>% 
+  group_by(country_name) %>% 
+  arrange(year, .by_group = TRUE) %>% 
+  mutate(population = c(0, diff(population)) / population) %>% 
+  gt() %>% 
+  fmt_percent(
+    columns = population
+  ) %>% 
+  tab_style(
+    style = cell_text(color = 'grey', weight = 'bold'),
+    locations = cells_body(columns = population)
+  ) %>% 
+  tab_style(
+    style = cell_fill('yellow'),
+    locations = cells_body(columns = population)
+  )
+
+countrypops %>% 
+  select(-country_code_2, -country_code_3) %>% 
+  group_by(country_name) %>% 
+  arrange(year, .by_group = TRUE) %>% 
+  mutate(population = c(0, diff(population)) / population) %>% 
+  gt() %>%
+  fmt_percent(
+    columns = population
+  ) %>% 
+  tab_style(
+    style = cell_fill(color = 'green', alpha = 0.5),
+    locations = cells_body(
+      columns = population,
+      rows = population > 0.02
+    )
+  ) %>% 
+  tab_style(
+    style = cell_fill(color = 'red', alpha = 0.5),
+    locations = cells_body(
+      columns = population,
+      rows = population <= 0
+    )
+  ) %>% 
+  tab_style(
+    style = cell_fill(color = 'orange', alpha = 0.5),
+    locations = cells_body(
+      columns = population,
+      rows = population > 0 & population <= 0.02
+    )
+  )
+
+mtcars %>% 
+  rownames_to_column(var = 'car_name') %>% 
+  gt() %>% 
+  tab_style(
+    style = cell_text(color = 'navy', weight = 'bold'),
+    locations = cells_column_labels(columns = ends_with('t'))
+  )
+
+mtcars %>% 
+  rownames_to_column(var = 'car_name') %>% 
+  gt() %>% 
+  tab_style(
+    style = cell_fill(color = 'green', alpha = 0.2),
+    locations = cells_body(rows = mpg > 20)
+  ) %>% 
+  tab_style(
+    style = cell_fill(color = 'green'),
+    locations = cells_body(
+      columns = mpg,
+      rows = mpg > 20
+    )
+  )
+
+
+mtcars %>% 
+  rownames_to_column(var = 'car_name') %>% 
+  gt() %>% 
+  tab_header(
+    title = 'Показатели автомобилей',
+    subtitle = 'датасет mtcars'
+  ) %>% 
+  tab_style(
+    style = cell_fill(color = 'green', alpha = 0.2),
+    locations = cells_body(rows = mpg > 20)
+  ) %>% 
+  tab_style(
+    style = cell_fill(color = 'green'),
+    locations = cells_body(
+      columns = mpg,
+      rows = mpg > 20
+    )
+  ) %>% 
+  tab_style(
+    style = cell_text(align = 'right'),
+    locations = cells_title(groups = 'title')
+  ) %>% 
+  tab_style(
+    style = cell_text(align = 'left', size = 5),
+    locations = cells_title(groups = 'subtitle')
+  )
+
+```
+
+# flextable
+
+```{r}
+library(flextable)
+
+mtcars %>% 
+  rownames_to_column(var = 'car_name') %>% 
+  flextable() %>% 
+  style(
+    i = ~ mpg > 20,
+    j = ~ .,
+    pr_p = officer::fp_par(shading.color = 'green')
+  )
+
+
+countrypops %>% 
+  group_by(country_name) %>% 
+  arrange(year, .by_group = TRUE) %>% 
+  summarise(data = list(population), .groups = 'drop') %>% 
+  filter(country_name %in% c('China', 'India', 'Russian Federation')) %>% 
+  flextable() %>% 
+  mk_par(
+    j = 'data',
+    value = as_paragraph(
+      plot_chunk(
+        value = data,
+        type = 'line',
+        col = 'red'
+      )
+    )
+  )
+
+countrypops %>% 
+  filter(country_name %in% c('China', 'India', 'Russian Federation')) %>% 
+  nest_by(country_name) %>% 
+  rowwise() %>% 
+  mutate(plot = list(ggplot(data, aes(x = year, y = population))+
+                            geom_line()+
+                            theme_void())) %>% 
+  select(-data) %>% 
+  ungroup() %>% 
+  flextable() %>% 
+  mk_par(
+    j = 'plot',
+    value = as_paragraph(gg_chunk(value = ., height = 0.15, width = 1))
+  )
+```
+
+
+
