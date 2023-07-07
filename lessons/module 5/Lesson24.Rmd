@@ -1,0 +1,119 @@
+---
+title: "Урок двадцать четвертый: Реактивность в Shiny"
+author: "Вячеслав Арбузов"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+## Пример реактивности через reactive
+
+```{r}
+
+
+library(shiny)
+library(quantmod)
+
+ui <- fluidPage(
+  titlePanel("stock data"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      textInput("symb", "Symbol", "SPY"),
+      dateRangeInput("dates",
+                     "Date range",
+                     start = "2013-01-01",
+                     end = as.character(Sys.Date())),
+      br(),
+    ),
+    
+    mainPanel(plotOutput("plot"))
+  )
+)
+
+# Server logic
+server <- function(input, output) {
+  
+  dataInput <- reactive({
+    getSymbols(input$symb, auto.assign = FALSE)
+  })
+  
+  output$plot <- renderPlot({
+    x = dataInput()
+    plot(x[,4][paste0(input$dates[1],'/',input$dates[2])])
+  })
+  
+}
+
+#shinyApp(ui, server)
+
+```
+
+
+## Сравнение reactive, observe, observeEvent
+
+```{r}
+
+library(shiny)
+
+ui<-
+  fluidPage(
+    fluidRow(
+      column(4,
+             h2("Reactive Test"),
+             textInput("Test_R","Test_R"),
+             textInput("Test_R2","Test_R2"),
+             textInput("Test_R3","Test_R3"),
+             tableOutput("React_Out")
+      ),
+      column(4,
+             h2("Observe Test"),
+             textInput("Test","Test"),
+             textInput("Test2","Test2"),
+             textInput("Test3","Test3"),
+             tableOutput("Observe_Out")
+      ),
+      column(4,
+             h2("Observe Event Test"),
+             textInput("Test_OE","Test_OE"),
+             textInput("Test_OE2","Test_OE2"),
+             textInput("Test_OE3","Test_OE3"),
+             tableOutput("Observe_Out_E"),
+             actionButton("Go","Test")
+      )
+      
+    )
+  )
+
+server<-function(input,output,session){
+  
+
+  Reactive_Var<-reactive({c(input$Test_R, input$Test_R2, input$Test_R3)})
+  
+  output$React_Out<-renderTable({
+    Reactive_Var()
+  })
+  
+  observe({
+    A<-input$Test
+    B<-input$Test2
+    C<-input$Test3
+    df<-c(A,B,C)
+    output$Observe_Out<-renderTable({df})
+  })
+  
+  observeEvent(input$Go, {
+    A<-input$Test_OE
+    B<-input$Test_OE2
+    C<-input$Test_OE3
+    df<-c(A,B,C)
+    output$Observe_Out_E<-renderTable({df})
+  })
+  
+}
+#shinyApp(ui, server)
+
+```
+
